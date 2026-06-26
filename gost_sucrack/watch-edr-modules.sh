@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
 # ============================================================
-# 0) Basic settings
+# Basic settings
 # ============================================================
 
 AGENT_LOG_FILE="/opt/vxagent/logs/agent.log"
@@ -25,7 +26,7 @@ REQUIRED_MODULES=(
 )
 
 # ============================================================
-# 1) Input arguments
+# Input arguments
 # ============================================================
 
 if [[ "$#" -ne 2 ]]; then
@@ -52,7 +53,7 @@ if [[ ! -r "${TRIGGER_PRIVATE_KEY}" ]]; then
 fi
 
 # ============================================================
-# 2) Get installed module names from agent log
+# Get installed module names from agent log
 # ============================================================
 
 get_installed_modules() {
@@ -68,7 +69,7 @@ get_installed_modules() {
 }
 
 # ============================================================
-# 3) Check all required modules
+# Check all required modules
 # ============================================================
 
 all_modules_are_installed() {
@@ -87,7 +88,7 @@ all_modules_are_installed() {
 }
 
 # ============================================================
-# 4) Actions after all modules are installed
+# Actions after all modules are installed
 # ============================================================
 
 run_actions() {
@@ -108,7 +109,7 @@ run_actions() {
 }
 
 # ============================================================
-# 5) Watch loop
+# Watch loop
 # ============================================================
 
 while true; do

