@@ -9,8 +9,8 @@ set -euo pipefail
 AGENT_LOG_FILE="/opt/vxagent/logs/agent.log"
 CHECK_INTERVAL_SECONDS=10
 
-TRIGGER_USER="case7trigger"
-TRIGGER_PRIVATE_KEY="/var/lib/case7/ssh/case7_trigger_key"
+TRIGGER_USER="case6trigger"
+TRIGGER_PRIVATE_KEY="/var/lib/case6/ssh/case6_trigger_key"
 
 REQUIRED_MODULES=(
   "account_blocker"

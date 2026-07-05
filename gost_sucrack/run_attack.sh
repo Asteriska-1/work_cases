@@ -3,15 +3,15 @@
 set -euo pipefail
 
 # ================================================
-# Case 7 paths
+# Case 6 paths
 # ================================================
 
-ATTACK_HOME="/opt/case7"
+ATTACK_HOME="/opt/case6"
 
 ROLE_FILE="${ATTACK_HOME}/lab_roles_ip.txt"
 LOCAL_GOST_PATH="${ATTACK_HOME}/gost"
 LOCAL_PSPY_PATH="${ATTACK_HOME}/pspy64"
-PERSIST_KEY="${ATTACK_HOME}/keys/case7_persistence_key"
+PERSIST_KEY="${ATTACK_HOME}/keys/case6_persistence_key"
 
 # ================================================
 # Compromised account
