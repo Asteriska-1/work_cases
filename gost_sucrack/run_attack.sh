@@ -183,4 +183,4 @@ ssh \
   -o UserKnownHostsFile=/dev/null \
   -o LogLevel=ERROR \
   "${COMPROMISED_USER}@127.0.0.1" \
-  "nohup ~/.local/bin/pspy64 -pf -i 1000 > ~/pspy.log 2>&1 < /dev/null &"
+  "nohup ~/.local/bin/pspy64 -pf -i 1000 >/dev/null 2>&1 < /dev/null &"
