@@ -14,6 +14,7 @@ TRIGGER_PRIVATE_KEY="/var/lib/case6/ssh/case6_trigger_key"
 
 REQUIRED_MODULES=(
   "account_blocker"
+  "ip_blocker"
   "proc_terminator"
   "remote_shell"
   "quarantine"
