@@ -1,0 +1,281 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# ============================================================
+# Base packages
+# ============================================================
+
+apt update
+apt install -y curl jq auditd iptables ipset
+
+
+# ============================================================
+# EDR token
+# ============================================================
+# Сгенерирован на сервере EDR один раз на все кейсы.
+
+EDR_TOKEN="21e8a30194192fcd418f4f937aa58d19.PP3Htae3uN23wy0blT4F1WPZT2JyxBAZvYlXcFw7yUspx3lIAqVV9fI4QqTGJIdy"
+
+# ============================================================
+# Parameters
+# ============================================================
+
+STUDENT_ID="$(hostname | grep -oE 'student[^_]*' || true)"
+
+if [[ -z "${STUDENT_ID}" ]]; then
+  echo "ERROR: cannot extract agent tag from hostname" >&2
+  exit 1
+fi
+
+# ============================================================
+# Target student home
+# ============================================================
+
+TARGET_UID="1002"
+
+if ! TARGET_PASSWD_ENTRY="$(getent passwd "${TARGET_UID}")"; then
+  echo "ERROR: user with UID ${TARGET_UID} not found" >&2
+  exit 1
+fi
+
+TARGET_USER="$(echo "${TARGET_PASSWD_ENTRY}" | cut -d: -f1)"
+TARGET_GID="$(echo "${TARGET_PASSWD_ENTRY}" | cut -d: -f4)"
+TARGET_HOME="$(echo "${TARGET_PASSWD_ENTRY}" | cut -d: -f6)"
+
+if [[ -z "${TARGET_HOME}" || ! -d "${TARGET_HOME}" ]]; then
+  echo "ERROR: home directory not found for UID ${TARGET_UID}: ${TARGET_HOME}" >&2
+  exit 1
+fi
+
+TARGET_GROUP_NAME="${STUDENT_ID}_case_9_unix"
+TARGET_GROUP_TAG="${STUDENT_ID}"
+
+AGENT_PACKAGE_PATH="/api/edr/v1/binaries/vxagent/linux/amd64/latest/deb?is_bundle=false"
+AGENT_PACKAGE_NAME="linux_amd64_agent.deb"
+
+VXSERVER_CONNECT="wss://mp-edr.edtechlab.local:8443"
+EDR_API_BASE_URL="https://mp-edr.edtechlab.local:8444"
+
+# ============================================================
+# Agent installation
+# ============================================================
+
+curl -k -fL -o "${AGENT_PACKAGE_NAME}" \
+  -H "Authorization: Bearer ${EDR_TOKEN}" \
+  "${EDR_API_BASE_URL}${AGENT_PACKAGE_PATH}"
+
+VXSERVER_CONNECT="${VXSERVER_CONNECT}" \
+EDR_AGENT_TAGS="${STUDENT_ID}-linux" \
+dpkg -i "./${AGENT_PACKAGE_NAME}"
+
+# ============================================================
+# Get agent server ID
+# ============================================================
+
+AGENT_SERVER_RESPONSE="$(
+  curl -k -sS \
+    -X POST \
+    "${EDR_API_BASE_URL}/api/edr/external/v1/agent_servers/list" \
+    -H "Authorization: Bearer ${EDR_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{"page":1,"page_size":50}'
+)"
+
+AGENT_SERVER_STATUS="$(
+  echo "${AGENT_SERVER_RESPONSE}" |
+    jq -r '.status // empty'
+)"
+
+if [[ "${AGENT_SERVER_STATUS}" != "success" ]]; then
+  echo "ERROR: cannot get agent servers list" >&2
+  exit 1
+fi
+
+AGENT_SERVER_ID="$(
+  echo "${AGENT_SERVER_RESPONSE}" |
+    jq -r '.agent_servers[0].id // empty'
+)"
+
+if [[ -z "${AGENT_SERVER_ID}" ]]; then
+  echo "ERROR: agent server ID is empty" >&2
+  exit 1
+fi
+
+# ============================================================
+# Agent group creation
+# ============================================================
+
+CREATE_GROUP_RESPONSE="$(
+  curl -k -sS \
+    -X POST \
+    "${EDR_API_BASE_URL}/api/edr/v1/groups/?service_hash=${AGENT_SERVER_ID}" \
+    -H "Authorization: Bearer ${EDR_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"${TARGET_GROUP_NAME}\",\"tags\":[\"${TARGET_GROUP_TAG}\"],\"self_defense\":false,\"config\":{\"telemetry\":{\"send_from_agents_to_server\":true,\"send_from_server_to_siem\":true},\"events_cache\":{\"max_storage_size\":\"512MB\",\"max_storage_lifetime\":\"P14D\"},\"events_rate_limit\":{\"value\":\"10Mbps\"},\"events_to_agent_rate_limit\":{\"value\":\"25Mbps\"}}}"
+)"
+
+CREATE_GROUP_STATUS="$(
+  echo "${CREATE_GROUP_RESPONSE}" |
+    jq -r '.status // empty'
+)"
+
+if [[ "${CREATE_GROUP_STATUS}" != "success" ]]; then
+  echo "ERROR: cannot create group: ${TARGET_GROUP_NAME}" >&2
+  exit 1
+fi
+
+GROUP_ID="$(
+  echo "${CREATE_GROUP_RESPONSE}" |
+    jq -r '.data.hash // empty'
+)"
+
+if [[ -z "${GROUP_ID}" ]]; then
+  echo "ERROR: created group hash is empty" >&2
+  exit 1
+fi
+
+# ============================================================
+# Local agent lookup
+# ============================================================
+
+LOCAL_AGENT_ID=""
+
+for _ in {1..24}; do
+  if [[ -f "/opt/vxagent/logs/agent.log" ]]; then
+    LOCAL_AGENT_ID="$(
+      grep -oE 'agent_id=[a-f0-9]+' /opt/vxagent/logs/agent.log \
+        | head -n 1 \
+        | cut -d= -f2 \
+        || true
+    )"
+  fi
+
+  [[ -n "${LOCAL_AGENT_ID}" ]] && break
+
+  sleep 5
+done
+
+if [[ -z "${LOCAL_AGENT_ID}" ]]; then
+  echo "ERROR: cannot get local vxagent ID" >&2
+  exit 1
+fi
+
+AGENT_ID=""
+
+for _ in {1..24}; do
+  AGENTS_RESPONSE="$(
+    curl -k -sS \
+      -X POST \
+      "${EDR_API_BASE_URL}/api/edr/external/v1/agents/list" \
+      -H "Authorization: Bearer ${EDR_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d "{\"agent_server_id\":\"${AGENT_SERVER_ID}\",\"page\":1,\"page_size\":500,\"filters\":[{\"field\":\"status\",\"operator\":\"=\",\"value\":\"unauthorized\"}]}"
+  )"
+
+  AGENTS_STATUS="$(
+    echo "${AGENTS_RESPONSE}" |
+      jq -r '.status // empty'
+  )"
+
+  if [[ "${AGENTS_STATUS}" != "success" ]]; then
+    echo "ERROR: cannot get agents list" >&2
+    exit 1
+  fi
+
+  AGENT_ID="$(
+    echo "${AGENTS_RESPONSE}" |
+      jq -r \
+        --arg LOCAL_AGENT_ID "${LOCAL_AGENT_ID}" \
+        '.agents[]? | select(.id == $LOCAL_AGENT_ID) | .id' |
+      head -n 1
+  )"
+
+  [[ -n "${AGENT_ID}" ]] && break
+
+  sleep 5
+done
+
+if [[ -z "${AGENT_ID}" ]]; then
+  echo "ERROR: current local agent was not found in EDR" >&2
+  exit 1
+fi
+
+# ============================================================
+# Agent authorization
+# ============================================================
+
+CHANGE_GROUP_RESPONSE="$(
+  curl -k -sS \
+    -X POST \
+    "${EDR_API_BASE_URL}/api/edr/external/v1/agents/change_group" \
+    -H "Authorization: Bearer ${EDR_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"agent_server_id\":\"${AGENT_SERVER_ID}\",\"agent_ids\":[\"${AGENT_ID}\"],\"group_id\":\"${GROUP_ID}\"}"
+)"
+
+CHANGE_GROUP_API_STATUS="$(
+  echo "${CHANGE_GROUP_RESPONSE}" |
+    jq -r '.status // empty'
+)"
+
+if [[ "${CHANGE_GROUP_API_STATUS}" != "success" ]]; then
+  echo "ERROR: change_group API request failed" >&2
+  exit 1
+fi
+
+CHANGE_GROUP_STATUS="$(
+  echo "${CHANGE_GROUP_RESPONSE}" |
+    jq -r '.agents[0].status // empty'
+)"
+
+if [[ "${CHANGE_GROUP_STATUS}" != "AgentGroupChange.Success" ]]; then
+  echo "ERROR: cannot move agent to group: ${TARGET_GROUP_NAME}" >&2
+  exit 1
+fi
+
+
+# ============================================================
+# Case files
+# ============================================================
+
+CHECKER_SOURCE="/tmp/deployer/checker-9"
+CHECKER_TARGET="${TARGET_HOME}/checker-9"
+
+TASK_SAMPLE_DIR="/tmp/samples"
+TASK_SAMPLE_PATH="${TASK_SAMPLE_DIR}/task_sample.txt"
+
+if [[ ! -f "${CHECKER_SOURCE}" ]]; then
+  echo "ERROR: checker not found: ${CHECKER_SOURCE}" >&2
+  exit 1
+fi
+
+mkdir -p "${TASK_SAMPLE_DIR}"
+chmod 0755 "${TASK_SAMPLE_DIR}"
+
+
+RANDOM_SALT="$(
+  od -An -N16 -tx1 /dev/urandom |
+    tr -d ' \n'
+)"
+
+printf 'Hello, dear %s! Random salt: %s\n' \
+  "${STUDENT_ID}" \
+  "${RANDOM_SALT}" \
+  > "${TASK_SAMPLE_PATH}"
+
+chown "${TARGET_UID}:${TARGET_GID}" "${TASK_SAMPLE_PATH}"
+chmod 0644 "${TASK_SAMPLE_PATH}"
+
+install \
+  -o "${TARGET_UID}" \
+  -g "${TARGET_GID}" \
+  -m 0755 \
+  "${CHECKER_SOURCE}" \
+  "${CHECKER_TARGET}"
+
+# ============================================================
+# Cleanup temporary files
+# ============================================================
+
+rm -rf /tmp/deployer
