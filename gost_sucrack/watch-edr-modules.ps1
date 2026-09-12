@@ -1,16 +1,8 @@
-param(
-    [Parameter(Mandatory)]
-    [string]$GroupId,
-
-    [Parameter(Mandatory)]
-    [string]$MailServerIp
-)
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # ============================================================
-# Basic settings
+# Settings
 # ============================================================
 
 $AgentLogFile = 'C:\Program Files\Positive Technologies\EDR Agent\agent.log'
@@ -20,9 +12,10 @@ $StateDirectory = 'C:\ProgramData\EdTechLab\MailTrigger'
 $CompletedFlag = Join-Path $StateDirectory 'completed.flag'
 
 $SshExe = "$env:SystemRoot\System32\OpenSSH\ssh.exe"
+$MailServerHost = 'mail.edtechlab.local'
 $TriggerUser = 'mailtrigger'
 
-$PrivateKeyBase64 = 'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNDZS9vdTNycjBBMXRDQ1BuWHBPYXVDRWdaUWFsK0o1YVNKalVOZnVOd3lBUUFBQUpEb3dQUEo2TUR6CnlRQUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQ2Uvb3UzcnIwQTF0Q0NQblhwT2F1Q0VnWlFhbCtKNWFTSmpVTmZ1Tnd5QVEKQUFBRUNEVXNKY0pvalovVFlnd2VSOVVIYWhUWnJsTVQwSTZkYVBoa0ZrWWkvb3BaNytpN2V1dlFEVzBJSStkZWs1cTRJUwpCbEJxWDRubHBJbU5RMSs0M0RJQkFBQUFERzFoYVd3dGRISnBaMmRsY2dFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K'
+$PrivateKeyBase64 = '__PRIVATE_KEY_BASE64__'
 
 $RequiredModules = @(
     'core'
@@ -35,7 +28,7 @@ $RequiredModules = @(
 )
 
 # ============================================================
-# Get initialized modules
+# Initialized modules
 # ============================================================
 
 function Get-InitializedModules {
@@ -43,13 +36,10 @@ function Get-InitializedModules {
         return @()
     }
 
-    $escapedGroupId = [regex]::Escape($GroupId)
-
     try {
         $modules = foreach ($line in Get-Content -LiteralPath $AgentLogFile) {
             if (
                 $line.Contains('msg="initialized successfully"') -and
-                $line -match "(?:^|\s)group_id=$escapedGroupId(?=\s|$)" -and
                 $line -match '(?:^|\s)module_name=([^\s]+)'
             ) {
                 $Matches[1]
@@ -76,7 +66,7 @@ function Test-RequiredModules {
 }
 
 # ============================================================
-# Send one-time SSH trigger
+# SSH trigger
 # ============================================================
 
 function Invoke-MailTrigger {
@@ -88,12 +78,13 @@ function Invoke-MailTrigger {
         throw 'Private key Base64 has not been inserted'
     }
 
-    New-Item -ItemType Directory -Path $StateDirectory -Force |
+    New-Item `
+        -ItemType Directory `
+        -Path $StateDirectory `
+        -Force |
         Out-Null
 
-    $temporaryKey = Join-Path `
-        $StateDirectory `
-        "mail-trigger-$([guid]::NewGuid().ToString('N')).key"
+    $temporaryKey = Join-Path $StateDirectory 'mail-trigger.key'
 
     try {
         $keyBytes = [Convert]::FromBase64String(
@@ -125,7 +116,7 @@ function Invoke-MailTrigger {
             -o UserKnownHostsFile=NUL `
             -o LogLevel=ERROR `
             -o ConnectTimeout=10 `
-            "$TriggerUser@$MailServerIp"
+            "$TriggerUser@$MailServerHost"
 
         if ($LASTEXITCODE -ne 0) {
             throw "SSH trigger failed with exit code $LASTEXITCODE"
