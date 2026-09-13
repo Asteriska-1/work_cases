@@ -44,9 +44,13 @@ FindThunderbirdWindow(timeoutSeconds) {
 
 WaitForMessage(profileDirectory, subjectHeader, timeoutSeconds) {
     deadline := A_TickCount + timeoutSeconds * 1000
+    mailDirectory := profileDirectory "\Mail"
 
     while A_TickCount < deadline {
-        Loop Files, profileDirectory "\Mail\*\Inbox", "F" {
+        Loop Files, mailDirectory "\*", "FR" {
+            if A_LoopFileName != "Inbox"
+                continue
+
             try {
                 inboxContent := FileRead(A_LoopFileFullPath)
 
@@ -121,7 +125,7 @@ WinGetPos(
 
 Click(
     windowX + Round(windowWidth * 0.4),
-    windowY + 175
+    windowY + 220
 )
 
 Sleep(2000)
@@ -139,7 +143,17 @@ if !WinWaitActive("Save Attachment", , 8)
     throw Error("Save Attachment window was not opened")
 
 Sleep(500)
+
+; Явно указываем полный путь в поле File name
+Send("!n")
+Sleep(200)
+Send("^a")
+SendText(archivePath)
+Sleep(200)
 Send("{Enter}")
+
+if !WinWaitClose("Save Attachment", , 10)
+    throw Error("Save Attachment window did not close")
 
 if WinWaitActive("Confirm Save As", , 2)
     Send("!y")
@@ -210,4 +224,17 @@ if !WinWaitActive("ahk_id " explorerWindow, , 5)
     throw Error("Windows Explorer was not activated")
 
 Sleep(1500)
-Send("{Enter}")
+
+WinGetPos(
+    &explorerX,
+    &explorerY,
+    &explorerWidth,
+    &explorerHeight,
+    "ahk_id " explorerWindow
+)
+
+Click(
+    explorerX + Round(explorerWidth * 0.4),
+    explorerY + 205,
+    2
+)
