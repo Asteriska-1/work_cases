@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
+#WinActivateForce
 
 SetTitleMatchMode(2)
 CoordMode("Mouse", "Screen")
