@@ -20,6 +20,12 @@ $RequiredModules = @(
     'normalizer'
     'correlator'
     'proc_terminator'
+    'remote_shell'
+    'quarantine'
+    'account_blocker'
+    'ip_blocker'
+    'host_isolator'
+    'endpoint_browser'
 )
 
 # ============================================================
@@ -62,6 +68,9 @@ while ($true) {
 
     Start-Sleep -Seconds 10
 }
+
+# Give EDR modules some time to become fully operational
+Start-Sleep -Seconds 15
 
 # ============================================================
 # Start the previously downloaded training file
