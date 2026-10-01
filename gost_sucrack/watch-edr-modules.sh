@@ -22,7 +22,7 @@ REQUIRED_MODULES=(
   "endpoint_browser"
   "normalizer"
   "file_reader"
-  "auditd_provisioner"
+  "linux_audit_collector"
   "core"
 )
 
